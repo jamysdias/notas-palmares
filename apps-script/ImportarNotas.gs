@@ -32,6 +32,56 @@ function dataIso_(v) {
   return null;
 }
 
+/** Detecta onde está cada parte da aba (algumas planilhas tiveram colunas apagadas). */
+function layoutAba_(v) {
+  var txt = function (l, c) { return String((v[l] && v[l][c]) || '').trim().toUpperCase(); };
+  var linha2 = v[1] || [], ini = {};
+  for (var c = 0; c < Math.max(linha2.length, 80); c++) {
+    var t = txt(1, c);
+    if (t.indexOf('AVALIAÇÕES BIMESTRAIS') === 0) ini.B = c;
+    else if (t.indexOf('AVALIAÇÕES CONTÍNUAS') === 0) ini.C = c;
+    else if (t.indexOf('RECUPERAÇÃO') === 0) ini.R = c;
+  }
+  if (ini.B === undefined) ini.B = 13;
+  if (ini.C === undefined) ini.C = 18;
+  if (ini.R === undefined) ini.R = 69;
+  var col = { G: 6, H: 7, I: 8, J: 9, K: 10, L: 11 };
+  var nomes = { 'MÉDIA FINAL': 'G', 'PROVA BIMESTRAL': 'H', 'CONTÍNUAS': 'I', 'RECUPERAÇÃO': 'J', 'ARREDONDAMENTO': 'K', 'CONSELHO': 'L' };
+  for (var c2 = 0; c2 < 13; c2++) { var n = nomes[txt(2, c2)]; if (n) col[n] = c2; }
+  var faixas = {}, fimAlunos = 51;
+  for (var l = 40; l < v.length; l++) {
+    var b = txt(l, 1);
+    if (b === 'PACOTES' && fimAlunos === 51) fimAlunos = l - 2;
+    if (b === 'BIMESTRAL') faixas.B = l + 1;
+    if (b === 'CONTÍNUAS') faixas.C = l + 1;
+    if (b === 'RECUPERAÇÃO') faixas.R = l + 1;
+  }
+  return {
+    colunas: { B: intervalo_(ini.B, ini.B + 3), C: intervalo_(ini.C, ini.R - 2), R: intervalo_(ini.R, ini.R + 3) },
+    col: col, fimAlunos: fimAlunos,
+    faixasPacotes: [[faixas.B || 61, 4], [faixas.C || 70, 6], [faixas.R || 80, 4]]
+  };
+}
+
+/** Nota de um bloco igual à fórmula da planilha (média ponderada por pacote, renormalizada). */
+function notaBloco_(avaliacoes, pacotes, bloco, ra) {
+  var pct = {}; pacotes.forEach(function (p) { pct[p.codigo] = p.percentual; });
+  var porPac = {};
+  avaliacoes.forEach(function (a) {
+    if (a.pacote.charAt(0) !== bloco) return;
+    var x = a.notas[ra];
+    if (typeof x !== 'number') return;
+    var g = porPac[a.pacote] || (porPac[a.pacote] = { p: 0, n: 0 });
+    g.p += a.peso; g.n += x * a.peso;
+  });
+  var num = 0, den = 0;
+  Object.keys(porPac).forEach(function (k) {
+    var g = porPac[k];
+    if (g.p > 0) { num += (g.n / g.p) * (pct[k] || 0); den += (pct[k] || 0); }
+  });
+  return den > 0 ? num / den : null;
+}
+
 /**
  * @param {Array<Array<*>>} v valores da aba A1:BU86 (API do Sheets, sem formatação)
  * @param {number} bimestre 1–4
@@ -39,11 +89,12 @@ function dataIso_(v) {
 function lerAbaBimestre(v, bimestre) {
   var avisos = [];
   var cel = function (l, c) { return (v[l] && v[l][c] !== undefined) ? v[l][c] : null; };
+  var lay = layoutAba_(v);
 
-  // Pacotes (B62:D65, B71:D76, B81:D84)
+  // Pacotes
   var pacotes = [];
-  [[61, 64], [70, 75], [80, 83]].forEach(function (faixa) {
-    intervalo_(faixa[0], faixa[1]).forEach(function (l) {
+  lay.faixasPacotes.forEach(function (f) {
+    intervalo_(f[0], f[0] + f[1] - 1).forEach(function (l) {
       var cod = String(cel(l, 1) || '').trim(), pct = cel(l, 3), desc = String(cel(l, 2) || '').trim();
       if (CODIGO_PACOTE.test(cod) && typeof pct === 'number') {
         pacotes.push({ codigo: cod, descricao: desc === 'sem desc.' ? '' : desc, percentual: pct });
@@ -51,13 +102,13 @@ function lerAbaBimestre(v, bimestre) {
     });
   });
 
-  // Alunos (linhas 8 a 52)
-  var linhas = intervalo_(7, 51).filter(function (l) { return !vazio_(cel(l, 2)); });
+  // Alunos
+  var linhas = intervalo_(7, lay.fimAlunos).filter(function (l) { return !vazio_(cel(l, 2)); });
   var ra = function (l) { return String(cel(l, 2)).trim(); };
 
-  // Avaliações: N:Q (bimestral), S:BP (contínuas), BR:BU (recuperação)
+  // Avaliações
   var avaliacoes = [];
-  intervalo_(13, 16).concat(intervalo_(18, 67), intervalo_(69, 72)).forEach(function (c) {
+  lay.colunas.B.concat(lay.colunas.C, lay.colunas.R).forEach(function (c) {
     var cod = String(cel(4, c) || '').trim(), nome = String(cel(2, c) || '').trim();
     var notas = {}, qtd = 0;
     linhas.forEach(function (l) {
@@ -82,36 +133,23 @@ function lerAbaBimestre(v, bimestre) {
                       peso: typeof peso === 'number' ? peso : 0, notas: notas });
   });
 
-  // Notas digitadas direto nas colunas H (Bimestral), I (Contínuas) ou J (Recuperação), por cima da fórmula:
-  // vira uma avaliação própria, para o resultado ficar igual ao da planilha.
-  [['B', 7, 'Prova Bimestral'], ['C', 8, 'Contínuas'], ['R', 9, 'Recuperação']].forEach(function (cfg) {
-    var bloco = cfg[0], col = cfg[1];
-    var comNota = {};
-    avaliacoes.forEach(function (a) {
-      if (a.pacote.charAt(0) !== bloco || !a.peso) return;
-      Object.keys(a.notas).forEach(function (r) { if (typeof a.notas[r] === 'number') comNota[r] = true; });
-    });
-    var notas = {}, qtd = 0;
-    linhas.forEach(function (l) {
-      var x = cel(l, col);
-      if (typeof x === 'number' && !comNota[ra(l)]) { notas[ra(l)] = x; qtd++; }
-    });
-    if (!qtd) return;
-    var pac = pacotes.filter(function (p) { return p.codigo.charAt(0) === bloco && p.percentual > 0; })[0];
-    if (!pac) { pac = { codigo: bloco + '1', descricao: cfg[2], percentual: 1 }; pacotes.push(pac); }
-    avaliacoes.push({ pacote: pac.codigo, nome: cfg[2] + ' (digitada direto na coluna de média)', data: null, peso: 1, notas: notas });
-    avisos.push('B' + bimestre + ': ' + qtd + ' notas de ' + cfg[2] + ' estavam digitadas direto na coluna de média — importadas como avaliação separada');
-  });
-
-  // Ajustes: K = Arredondamento, L = Conselho. G = Média Final (para conferência)
-  var ajustes = [], finais = {};
+  // Ajustes, notas de bloco digitadas por cima da fórmula e média final (para conferência)
+  var ajustes = [], finais = {}, informadas = 0;
   linhas.forEach(function (l) {
-    var k = cel(l, 10), cons = cel(l, 11), g = cel(l, 6);
-    if (typeof k === 'number' || typeof cons === 'number') {
-      ajustes.push({ ra: ra(l), acrescimo: typeof k === 'number' ? k : null, conselho: typeof cons === 'number' ? cons : null });
-    }
-    if (typeof g === 'number') finais[ra(l)] = g;
+    var r = ra(l), aj = { ra: r };
+    var k = cel(l, lay.col.K), cons = cel(l, lay.col.L), g = cel(l, lay.col.G);
+    if (typeof k === 'number') aj.acrescimo = k;
+    if (typeof cons === 'number') aj.conselho = cons;
+    [['B', 'H', 'bimestral_informada'], ['C', 'I', 'continuas_informada'], ['R', 'J', 'recuperacao_informada']].forEach(function (x) {
+      var naPlanilha = cel(l, lay.col[x[1]]);
+      if (typeof naPlanilha !== 'number') return;
+      var calculado = notaBloco_(avaliacoes, pacotes, x[0], r);
+      if (calculado === null || Math.abs(calculado - naPlanilha) > 0.005) { aj[x[2]] = naPlanilha; informadas++; }
+    });
+    if (Object.keys(aj).length > 1) ajustes.push(aj);
+    if (typeof g === 'number') finais[r] = g;
   });
+  if (informadas) avisos.push('B' + bimestre + ': ' + informadas + ' nota(s) de bloco estavam digitadas direto na coluna de média — mantidas como "valor informado na planilha"');
 
   return { bimestre: bimestre, pacotes: pacotes, avaliacoes: avaliacoes, ajustes: ajustes, finais: finais, avisos: avisos };
 }

@@ -252,7 +252,7 @@ function Grade({ dados, est, edicoes, conflitos, editar, podeLancar, abrirAv, ab
         <tbody>
           {alunos.map((al, l) => (
             <Linha key={al.ra} l={l} al={al} colunas={colunas} grupos={grupos} notas={est.notas[al.ra]} ed={edicoes[al.ra]}
-                   conflitos={conflitos} m={est.medias[al.ra]} blocoOk={est.blocoOk} podeLancar={podeLancar} podeCoord={podeCoord}
+                   conflitos={conflitos} m={est.medias[al.ra]} aj={est.ajustes[al.ra]} blocoOk={est.blocoOk} podeLancar={podeLancar} podeCoord={podeCoord}
                    editar={editar} aoTeclar={aoTeclar} aoColar={aoColar}
                    abrirAjuste={abrirAjuste} abrirDetalhe={abrirDetalhe} salvarAcrescimo={salvarAcrescimo} />
           ))}
@@ -265,7 +265,9 @@ function Grade({ dados, est, edicoes, conflitos, editar, podeLancar, abrirAv, ab
 
 const ORIGEM = { recuperacao: ['R', 'Recuperação aplicada'], conselho: ['C', 'Nota do conselho'] }
 
-const Linha = memo(function Linha({ l, al, colunas, grupos, notas, ed, conflitos, m, blocoOk, podeLancar, podeCoord, editar, aoTeclar, aoColar, abrirAjuste, abrirDetalhe, salvarAcrescimo }) {
+const Inf = () => <span className="origem o-inf" title="Valor digitado direto na planilha de 2026 (por cima da fórmula)">i</span>
+
+const Linha = memo(function Linha({ l, al, colunas, grupos, notas, ed, conflitos, m, aj, blocoOk, podeLancar, podeCoord, editar, aoTeclar, aoColar, abrirAjuste, abrirDetalhe, salvarAcrescimo }) {
   const transferido = al.situacao !== 'Ativo'
   let c = -1
   return (
@@ -293,9 +295,9 @@ const Linha = memo(function Linha({ l, al, colunas, grupos, notas, ed, conflitos
             </td>
           )
         }))}
-      <td className="res">{media(m?.nota_bimestral)}</td>
-      <td className="res">{media(m?.nota_continuas)}</td>
-      <td className="res">{media(m?.nota_recuperacao)}</td>
+      <td className="res">{media(m?.nota_bimestral)}{aj?.bimestral_informada != null && <Inf />}</td>
+      <td className="res">{media(m?.nota_continuas)}{aj?.continuas_informada != null && <Inf />}</td>
+      <td className="res">{media(m?.nota_recuperacao)}{aj?.recuperacao_informada != null && <Inf />}</td>
       <td className={`res ${corMedia(m?.media_calculada)}`}>{media(m?.media_calculada)}</td>
       <td className="res">
         {podeLancar && !transferido ? (
@@ -322,7 +324,8 @@ function Legenda() {
       Digite notas de 0 a 100 · "-" = não avaliado · Enter/setas navegam · cole colunas do Excel/Planilhas ·
       <span className="origem o-recuperacao">R</span> recuperação aplicada ·
       <span className="origem o-conselho">C</span> nota do conselho ·
-      <span className="origem o-bonus">+</span> com bônus · clique na nota final para ver a composição e o histórico
+      <span className="origem o-bonus">+</span> com bônus ·
+      <span className="origem o-inf">i</span> valor digitado direto na planilha 2026 · clique na nota final para ver a composição e o histórico
     </div>
   )
 }
@@ -479,8 +482,8 @@ function ModalDetalhe({ dados, est, ra, diarioId, bimestre, fechar }) {
     <Modal titulo={`${al?.nome} – ${bimestre}º bimestre`} onFechar={fechar} largo>
       <table className="composicao">
         <tbody>
-          {linha('Prova bimestral', media(m.nota_bimestral) || '—', `peso ${pct(d.peso_bimestral)}`)}
-          {linha('Contínuas', media(m.nota_continuas) || '—', `peso ${pct(d.peso_continuas)}`)}
+          {linha('Prova bimestral', media(m.nota_bimestral) || '—', `peso ${pct(d.peso_bimestral)}${aj.bimestral_informada != null ? ' · valor informado na planilha 2026' : ''}`)}
+          {linha('Contínuas', media(m.nota_continuas) || '—', `peso ${pct(d.peso_continuas)}${aj.continuas_informada != null ? ' · valor informado na planilha 2026' : ''}`)}
           {linha('Média calculada', media(m.media_calculada) || '—', '', true)}
           {linha('Recuperação', media(m.nota_recuperacao) || '—', m.nota_recuperacao != null ? `resultado após recuperação: ${media(m.apos_recuperacao)} (só vale se a média < 50, limite 50)` : '')}
           {linha('Conselho', num(m.conselho) || '—', aj.conselho_justificativa ? `“${aj.conselho_justificativa}”` : 'substitui o resultado')}
