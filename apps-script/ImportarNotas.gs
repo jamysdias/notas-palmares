@@ -199,12 +199,11 @@ function importarNotas2026() {
     if (feitos[d.id]) continue;
     if (Date.now() - inicio > IMPORTACAO.LIMITE_MS) { agendarContinuacao_(); return; }
     try {
+      var intervalos = IMPORTACAO.ABAS_BIMESTRE.map(function (nome) { return "'" + nome + "'!A1:BU86"; });
+      var lidos = valoresVarios_(d.id, intervalos);
       var bimestres = [];
-      IMPORTACAO.ABAS_BIMESTRE.forEach(function (nome, idx) {
-        var v;
-        try { v = valores_(d.id, "'" + nome + "'!A1:BU86"); } catch (e) { return; }  // aba inexistente
-        bimestres.push(lerAbaBimestre(v, idx + 1));
-      });
+      intervalos.forEach(function (iv, idx) { if (lidos[iv]) bimestres.push(lerAbaBimestre(lidos[iv], idx + 1)); });
+      if (!bimestres.length) throw new Error('Nenhuma aba de bimestre encontrada na planilha (nada foi alterado no sistema)');
       var r = supabaseRpc_('importar_diario', { p_ano: IMPORTACAO.ANO, p_serie: d.serie, p_turma: d.turma, p_materia: d.materia,
                                                 p_dados: { bimestres: bimestres } });
       var conferidos = 0, divergencias = [];
