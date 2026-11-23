@@ -41,6 +41,8 @@ Cada `push` na branch `main` dispara o workflow **Publicar**, que:
 2. garante o administrador inicial;
 3. gera o site e publica no GitHub Pages.
 
+A URL do projeto e a anon key (públicas por natureza) ficam em `app/.env.production`.
+
 Secrets necessários no repositório (Settings → Secrets and variables → Actions):
 
 | Secret | O que é |
@@ -48,8 +50,6 @@ Secrets necessários no repositório (Settings → Secrets and variables → Act
 | `SUPABASE_PROJECT_REF` | Código do projeto (o trecho XXXX da URL do painel) |
 | `SUPABASE_DB_PASSWORD` | Senha do banco |
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens |
-| `VITE_SUPABASE_URL` | Project URL (`https://XXXX.supabase.co`) |
-| `VITE_SUPABASE_ANON_KEY` | Anon/publishable key |
 | `ADMIN_EMAIL` | Seu e-mail, que vira o primeiro administrador |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credencial do login Google (passo a passo abaixo) |
 
