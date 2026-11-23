@@ -47,8 +47,27 @@ function lerAlunosDaPlanilha_() {
   return lista;
 }
 
+/**
+ * (Somente teste/apresentação) Fundamental I (1º ao 5º ano) vindo da Planilha Mestre 2026,
+ * aba "Alunos longo" (nº | RA | nome | série | turma | situação). Só LEITURA.
+ * Ativado quando a propriedade MESTRE_ID está preenchida.
+ */
+function lerFundamentalIMestre_() {
+  var id = PropertiesService.getScriptProperties().getProperty('MESTRE_ID');
+  if (!id) return [];
+  var aba = SpreadsheetApp.openById(id).getSheetByName('Alunos longo');
+  if (!aba || aba.getLastRow() < 2) return [];
+  return aba.getRange(2, 1, aba.getLastRow() - 1, 6).getValues()
+    .filter(function (l) { return String(l[1]).trim() && String(l[2]).trim() && /^[1-5]º ANO$/i.test(String(l[3]).trim()); })
+    .map(function (l) {
+      return { ra: String(l[1]).trim(), nome: String(l[2]).trim(), serie: String(l[3]).trim().toUpperCase(),
+               turma: String(l[4] || '1').trim(), numero: String(l[0] || '').trim(),
+               situacao: /transferid/i.test(String(l[5])) ? 'Transferido' : 'Ativo' };
+    });
+}
+
 function sincronizarAlunos() {
-  var alunos = lerAlunosDaPlanilha_();
+  var alunos = lerAlunosDaPlanilha_().concat(lerFundamentalIMestre_());
   var r = supabaseRpc_('sync_alunos', { p_ano: ALUNOS.ANO_LETIVO, p_alunos: alunos });
   supabaseRpc_('registrar_importacao', { p: { tipo: 'alunos', avaliacoes: null, notas: r.processados,
     avisos: r.erros.map(function (e) { return e.erro + ' (' + (e.item.nome || e.item.ra) + ')'; }).concat(r.turmas_novas.map(function (t) { return 'Turma criada: ' + t; })) } });

@@ -77,6 +77,7 @@ Crie um projeto **separado** em script.google.com → Novo projeto. Ele não fic
 | `SUPABASE_SERVICE_KEY` | A chave `service_role`. Ela dá acesso total ao banco: nunca a compartilhe. |
 | `ALUNOS_PLANILHA_ID` | O ID da planilha "Base Escolar — Colégio Palmares" (aba Alunos) |
 | `INDICE_ID` | O ID da planilha "Acesso às Planilhas de Notas" (só para importar 2026) |
+| `MESTRE_ID` | (Opcional, teste) O ID da "Planilha Mestre_2026": traz o Fundamental I, que não está na Base Escolar |
 
 Uso:
 
