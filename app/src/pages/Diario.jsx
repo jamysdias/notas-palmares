@@ -265,7 +265,7 @@ function Grade({ dados, est, edicoes, conflitos, editar, podeLancar, abrirAv, ab
 
 const ORIGEM = { recuperacao: ['R', 'Recuperação aplicada'], conselho: ['C', 'Nota do conselho'] }
 
-const Inf = () => <span className="origem o-inf" title="Valor digitado direto na planilha de 2026 (por cima da fórmula)">i</span>
+const Inf = () => <span className="origem o-inf" title="Valor ajustado direto na planilha de 2026 (digitado por cima da fórmula ou bloco desconsiderado)">i</span>
 
 const Linha = memo(function Linha({ l, al, colunas, grupos, notas, ed, conflitos, m, aj, blocoOk, podeLancar, podeCoord, editar, aoTeclar, aoColar, abrirAjuste, abrirDetalhe, salvarAcrescimo }) {
   const transferido = al.situacao !== 'Ativo'
@@ -295,9 +295,9 @@ const Linha = memo(function Linha({ l, al, colunas, grupos, notas, ed, conflitos
             </td>
           )
         }))}
-      <td className="res">{media(m?.nota_bimestral)}{aj?.bimestral_informada != null && <Inf />}</td>
-      <td className="res">{media(m?.nota_continuas)}{aj?.continuas_informada != null && <Inf />}</td>
-      <td className="res">{media(m?.nota_recuperacao)}{aj?.recuperacao_informada != null && <Inf />}</td>
+      <td className="res">{media(m?.nota_bimestral)}{(aj?.bimestral_informada != null || aj?.blocos_ignorados?.includes('B')) && <Inf />}</td>
+      <td className="res">{media(m?.nota_continuas)}{(aj?.continuas_informada != null || aj?.blocos_ignorados?.includes('C')) && <Inf />}</td>
+      <td className="res">{media(m?.nota_recuperacao)}{(aj?.recuperacao_informada != null || aj?.blocos_ignorados?.includes('R')) && <Inf />}</td>
       <td className={`res ${corMedia(m?.media_calculada)}`}>{media(m?.media_calculada)}</td>
       <td className="res">
         {podeLancar && !transferido ? (

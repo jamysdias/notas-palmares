@@ -45,9 +45,12 @@ function layoutAba_(v) {
   if (ini.B === undefined) ini.B = 13;
   if (ini.C === undefined) ini.C = 18;
   if (ini.R === undefined) ini.R = 69;
-  var col = { G: 6, H: 7, I: 8, J: 9, K: 10, L: 11 };
+  // colunas de resultado pelo título da linha 3 (algumas planilhas não têm "Arredondamento")
   var nomes = { 'MÉDIA FINAL': 'G', 'PROVA BIMESTRAL': 'H', 'CONTÍNUAS': 'I', 'RECUPERAÇÃO': 'J', 'ARREDONDAMENTO': 'K', 'CONSELHO': 'L' };
-  for (var c2 = 0; c2 < 13; c2++) { var n = nomes[txt(2, c2)]; if (n) col[n] = c2; }
+  var col = {};
+  for (var c2 = 0; c2 < 14; c2++) { var n = nomes[txt(2, c2)]; if (n && col[n] === undefined) col[n] = c2; }
+  if (col.G === undefined) col = { G: 6, H: 7, I: 8, J: 9, K: 10, L: 11 };
+  ['H', 'I', 'J', 'K', 'L'].forEach(function (k) { if (col[k] === undefined) col[k] = -1; });
   var faixas = {}, fimAlunos = 51;
   for (var l = 40; l < v.length; l++) {
     var b = txt(l, 1);
@@ -140,12 +143,19 @@ function lerAbaBimestre(v, bimestre) {
     var k = cel(l, lay.col.K), cons = cel(l, lay.col.L), g = cel(l, lay.col.G);
     if (typeof k === 'number') aj.acrescimo = k;
     if (typeof cons === 'number') aj.conselho = cons;
+    var ignorados = '';
     [['B', 'H', 'bimestral_informada'], ['C', 'I', 'continuas_informada'], ['R', 'J', 'recuperacao_informada']].forEach(function (x) {
       var naPlanilha = cel(l, lay.col[x[1]]);
-      if (typeof naPlanilha !== 'number') return;
+      if (typeof naPlanilha === 'string' && /^\s*-?\d+([.,]\d+)?\s*$/.test(naPlanilha)) naPlanilha = Number(naPlanilha.replace(',', '.'));
       var calculado = notaBloco_(avaliacoes, pacotes, x[0], r);
+      if (typeof naPlanilha !== 'number') {
+        // bloco vazio na planilha, mas com notas lançadas: a planilha não considerou esse bloco
+        if (calculado !== null && typeof g === 'number') { ignorados += x[0]; informadas++; }
+        return;
+      }
       if (calculado === null || Math.abs(calculado - naPlanilha) > 0.005) { aj[x[2]] = naPlanilha; informadas++; }
     });
+    if (ignorados) aj.blocos_ignorados = ignorados;
     if (Object.keys(aj).length > 1) ajustes.push(aj);
     if (typeof g === 'number') finais[r] = g;
   });
