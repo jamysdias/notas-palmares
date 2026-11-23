@@ -29,18 +29,14 @@ function separarTurma_(txt) {
 function lerAlunosDaPlanilha_() {
   var id = PropertiesService.getScriptProperties().getProperty('ALUNOS_PLANILHA_ID');
   if (!id) throw new Error('Defina ALUNOS_PLANILHA_ID nas Propriedades do script.');
-  var aba = SpreadsheetApp.openById(id).getSheetByName(ALUNOS.ABA);
-  if (!aba) throw new Error('Aba "' + ALUNOS.ABA + '" não encontrada.');
-  var n = aba.getLastRow() - ALUNOS.LINHA_INICIAL + 1;
-  if (n <= 0) return [];
   // lê só as colunas necessárias (RA até Ativo) — dados de responsáveis não são lidos
-  var valores = aba.getRange(ALUNOS.LINHA_INICIAL, 1, n, ALUNOS.COL_ATIVO).getValues();
+  var valores = valores_(id, "'" + ALUNOS.ABA + "'!A" + ALUNOS.LINHA_INICIAL + ':F');
   var lista = [];
   valores.forEach(function (l) {
-    var ra = String(l[ALUNOS.COL_RA - 1]).trim(), nome = String(l[ALUNOS.COL_NOME - 1]).trim();
+    var ra = String(l[ALUNOS.COL_RA - 1] || '').trim(), nome = String(l[ALUNOS.COL_NOME - 1] || '').trim();
     if (!ra || !nome) return;
     var t = separarTurma_(l[ALUNOS.COL_TURMA - 1]) || { serie: String(l[ALUNOS.COL_TURMA - 1]), turma: 1 };
-    var ativo = String(l[ALUNOS.COL_ATIVO - 1]).trim().toUpperCase();
+    var ativo = String(l[ALUNOS.COL_ATIVO - 1] || '').trim().toUpperCase();
     lista.push({ ra: ra, nome: nome, serie: t.serie, turma: String(t.turma), numero: '',
                  situacao: ativo === 'NÃO' || ativo === 'NAO' ? 'Transferido' : 'Ativo' });
   });
@@ -55,14 +51,12 @@ function lerAlunosDaPlanilha_() {
 function lerFundamentalIMestre_() {
   var id = PropertiesService.getScriptProperties().getProperty('MESTRE_ID');
   if (!id) return [];
-  var aba = SpreadsheetApp.openById(id).getSheetByName('Alunos longo');
-  if (!aba || aba.getLastRow() < 2) return [];
-  return aba.getRange(2, 1, aba.getLastRow() - 1, 6).getValues()
-    .filter(function (l) { return String(l[1]).trim() && String(l[2]).trim() && /^[1-5]º ANO$/i.test(String(l[3]).trim()); })
+  return valores_(id, "'Alunos longo'!A2:F")
+    .filter(function (l) { return String(l[1] || '').trim() && String(l[2] || '').trim() && /^[1-5]º ANO$/i.test(String(l[3] || '').trim()); })
     .map(function (l) {
       return { ra: String(l[1]).trim(), nome: String(l[2]).trim(), serie: String(l[3]).trim().toUpperCase(),
                turma: String(l[4] || '1').trim(), numero: String(l[0] || '').trim(),
-               situacao: /transferid/i.test(String(l[5])) ? 'Transferido' : 'Ativo' };
+               situacao: /transferid/i.test(String(l[5] || '')) ? 'Transferido' : 'Ativo' };
     });
 }
 

@@ -25,3 +25,14 @@ function supabaseRpc_(funcao, args) {
   if (code >= 300) throw new Error('Supabase ' + funcao + ' (' + code + '): ' + body);
   return body ? JSON.parse(body) : null;
 }
+
+/**
+ * Leitura de planilhas SOMENTE pela API do Google Sheets com permissão de leitura
+ * (spreadsheets.readonly). O SpreadsheetApp não é usado porque exigiria permissão de edição.
+ */
+function valores_(planilhaId, intervalo) {
+  var r = Sheets.Spreadsheets.Values.get(planilhaId, intervalo, {
+    valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'FORMATTED_STRING'
+  });
+  return r.values || [];
+}

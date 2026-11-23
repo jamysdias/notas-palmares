@@ -28,12 +28,12 @@ function dataIso_(v) {
   }
   var s = String(v).trim(), m;
   if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[1] + '-' + m[2] + '-' + m[3];
-  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
   return null;
 }
 
 /**
- * @param {Array<Array<*>>} v valores da aba (getRange(1,1,86,73).getValues())
+ * @param {Array<Array<*>>} v valores da aba A1:BU86 (API do Sheets, sem formatação)
  * @param {number} bimestre 1–4
  */
 function lerAbaBimestre(v, bimestre) {
@@ -119,18 +119,23 @@ function lerAbaBimestre(v, bimestre) {
 /* ---------------- Execução no Google ---------------- */
 function lerIndice_() {
   if (!IMPORTACAO.INDICE_ID) throw new Error('Defina INDICE_ID nas Propriedades do script.');
-  var aba = SpreadsheetApp.openById(IMPORTACAO.INDICE_ID).getSheets()[0];
-  var dados = aba.getDataRange().getValues();
-  var links = aba.getRange(1, 6, aba.getLastRow(), 1).getRichTextValues();
+  // série (B), matéria (C) e o link do arquivo (F) — só leitura, pela API do Sheets
+  var r = Sheets.Spreadsheets.get(IMPORTACAO.INDICE_ID, {
+    ranges: ['A1:F400'], fields: 'sheets(data(rowData(values(formattedValue,hyperlink))))'
+  });
+  var linhas = (((r.sheets || [])[0] || {}).data || [])[0];
+  linhas = (linhas && linhas.rowData) || [];
   var vistos = {}, lista = [];
-  for (var i = 1; i < dados.length; i++) {
-    var url = links[i][0] && links[i][0].getLinkUrl();
+  for (var i = 1; i < linhas.length; i++) {
+    var c = linhas[i].values || [];
+    var url = c[5] && c[5].hyperlink;
     var id = url && (url.match(/\/d\/([\w-]+)/) || [])[1];
     if (!id || vistos[id]) continue;
     vistos[id] = true;
-    var m = String(dados[i][1]).match(/(\d)(º ano|ª série)\s*(\d)?/i);
+    var m = String((c[1] && c[1].formattedValue) || '').match(/(\d)(º ano|ª série)\s*(\d)?/i);
     if (!m) continue;
-    lista.push({ id: id, serie: m[1] + (/ano/i.test(m[2]) ? 'º ANO' : 'ª SÉRIE'), turma: Number(m[3] || 1), materia: String(dados[i][2]).trim() });
+    lista.push({ id: id, serie: m[1] + (/ano/i.test(m[2]) ? 'º ANO' : 'ª SÉRIE'), turma: Number(m[3] || 1),
+                 materia: String((c[2] && c[2].formattedValue) || '').trim() });
   }
   return lista;
 }
@@ -146,11 +151,11 @@ function importarNotas2026() {
     if (feitos[d.id]) continue;
     if (Date.now() - inicio > IMPORTACAO.LIMITE_MS) { agendarContinuacao_(); return; }
     try {
-      var planilha = SpreadsheetApp.openById(d.id);
       var bimestres = [];
       IMPORTACAO.ABAS_BIMESTRE.forEach(function (nome, idx) {
-        var aba = planilha.getSheetByName(nome);
-        if (aba) bimestres.push(lerAbaBimestre(aba.getRange(1, 1, 86, 73).getValues(), idx + 1));
+        var v;
+        try { v = valores_(d.id, "'" + nome + "'!A1:BU86"); } catch (e) { return; }  // aba inexistente
+        bimestres.push(lerAbaBimestre(v, idx + 1));
       });
       var r = supabaseRpc_('importar_diario', { p_ano: IMPORTACAO.ANO, p_serie: d.serie, p_turma: d.turma, p_materia: d.materia,
                                                 p_dados: { bimestres: bimestres } });
