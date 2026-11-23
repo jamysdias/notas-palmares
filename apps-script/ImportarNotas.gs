@@ -3,8 +3,9 @@
  * Lê o índice "Acesso às Planilhas de Notas", abre cada planilha (somente leitura),
  * envia avaliações, notas, pacotes e ajustes para o sistema e confere se as médias batem.
  *
+ * As planilhas são apenas LIDAS (o appsscript.json só permite leitura): o sistema recebe uma CÓPIA dos dados.
  * Rode "importarNotas2026". Se passar de ~5 minutos, ele agenda a continuação sozinho.
- * O relatório fica na aba "Importação" desta planilha.
+ * O relatório fica no próprio sistema (Administração → Importação).
  */
 var IMPORTACAO = {
   // ID da planilha "Acesso às Planilhas de Notas" (defina a propriedade INDICE_ID nas Propriedades do script)
@@ -139,8 +140,6 @@ function importarNotas2026() {
   var props = PropertiesService.getScriptProperties();
   var feitos = JSON.parse(props.getProperty('IMPORTACAO_FEITOS') || '{}');
   var lista = lerIndice_();
-  var relatorio = SpreadsheetApp.getActive().getSheetByName('Importação') || SpreadsheetApp.getActive().insertSheet('Importação');
-  if (relatorio.getLastRow() === 0) relatorio.appendRow(['Quando', 'Série', 'Turma', 'Matéria', 'Avaliações', 'Notas', 'Conferidos', 'Divergências', 'Avisos']);
 
   for (var i = 0; i < lista.length; i++) {
     var d = lista[i];
@@ -162,11 +161,12 @@ function importarNotas2026() {
         c.divergencias.forEach(function (x) { divergencias.push('B' + b.bimestre + ' RA ' + x.ra + ': planilha ' + x.planilha + ' / sistema ' + x.sistema); });
       });
       var avisos = [].concat.apply(r.avisos || [], bimestres.map(function (b) { return b.avisos; }));
-      relatorio.appendRow([new Date(), d.serie, d.turma, d.materia, r.avaliacoes, r.notas, conferidos, divergencias.join('\n'), avisos.join('\n')]);
+      supabaseRpc_('registrar_importacao', { p: { tipo: 'notas', serie: d.serie, turma: d.turma, materia: d.materia,
+        avaliacoes: r.avaliacoes, notas: r.notas, conferidos: conferidos, divergencias: divergencias, avisos: avisos } });
       feitos[d.id] = true;
       props.setProperty('IMPORTACAO_FEITOS', JSON.stringify(feitos));
     } catch (e) {
-      relatorio.appendRow([new Date(), d.serie, d.turma, d.materia, '', '', '', '', 'ERRO: ' + e.message]);
+      supabaseRpc_('registrar_importacao', { p: { tipo: 'notas', serie: d.serie, turma: d.turma, materia: d.materia, erro: e.message } });
       feitos[d.id] = true;
       props.setProperty('IMPORTACAO_FEITOS', JSON.stringify(feitos));
     }

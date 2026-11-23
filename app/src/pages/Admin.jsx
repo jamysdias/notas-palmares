@@ -3,7 +3,7 @@ import { rpc, tabela, gravar } from '../supabase.js'
 import { useDados, Carregando, Erro, useToast } from '../components/ui.jsx'
 import { ir, dataHoraBR, nomeTurma, pct } from '../util.js'
 
-const SECOES = [['usuarios', 'Usuários'], ['atribuicoes', 'Atribuições'], ['periodos', 'Bimestres e prazos'], ['pesos', 'Pesos por diário'], ['ano', 'Ano letivo'], ['auditoria', 'Auditoria']]
+const SECOES = [['usuarios', 'Usuários'], ['atribuicoes', 'Atribuições'], ['periodos', 'Bimestres e prazos'], ['pesos', 'Pesos por diário'], ['ano', 'Ano letivo'], ['importacao', 'Importação'], ['auditoria', 'Auditoria']]
 
 export default function Admin({ secao, perfil, aoMudarPerfil }) {
   return (
@@ -15,6 +15,7 @@ export default function Admin({ secao, perfil, aoMudarPerfil }) {
       {secao === 'periodos' && <Periodos />}
       {secao === 'pesos' && <Pesos />}
       {secao === 'ano' && <AnoLetivo />}
+      {secao === 'importacao' && <Importacao />}
       {secao === 'auditoria' && <Auditoria />}
     </div>
   )
@@ -315,4 +316,42 @@ function resumo(antes, depois) {
   if (!depois) return 'excluído: ' + JSON.stringify(antes).slice(0, 140)
   const mud = Object.keys(depois).filter((k) => !/atualizado_em|criado_em/.test(k) && JSON.stringify(antes[k]) !== JSON.stringify(depois[k]))
   return mud.map((k) => `${k}: ${JSON.stringify(antes[k])} → ${JSON.stringify(depois[k])}`).join('; ')
+}
+
+/* ------------------------------ Importação ------------------------------ */
+function Importacao() {
+  const r = useDados(() => tabela('importacoes', (q) => q.order('em', { ascending: false }).limit(500)), [])
+  if (r.carregando) return <Carregando />
+  if (r.erro) return <Erro erro={r.erro} />
+  const notas = r.dados.filter((x) => x.tipo === 'notas')
+  const div = notas.reduce((s, x) => s + (x.divergencias?.length || 0), 0)
+  const conf = notas.reduce((s, x) => s + (x.conferidos || 0), 0)
+  return (
+    <div>
+      <p className="ajuda">Registro das cópias feitas pelo Apps Script. As planilhas originais são apenas lidas.</p>
+      {notas.length > 0 && (
+        <div className="indicadores">
+          <div className="indicador"><div className="ind-valor">{notas.length}</div><div className="ind-rotulo">Diários importados</div></div>
+          <div className="indicador"><div className="ind-valor">{conf.toLocaleString('pt-BR')}</div><div className="ind-rotulo">Médias conferidas com a planilha</div></div>
+          <div className={`indicador ${div ? 'alerta' : ''}`}><div className="ind-valor">{div}</div><div className="ind-rotulo">Divergências</div></div>
+          <div className={`indicador ${notas.some((x) => x.erro) ? 'alerta' : ''}`}><div className="ind-valor">{notas.filter((x) => x.erro).length}</div><div className="ind-rotulo">Erros</div></div>
+        </div>
+      )}
+      <table className="tabela">
+        <thead><tr><th>Quando</th><th>Tipo</th><th>Diário</th><th>Avaliações</th><th>Notas/alunos</th><th>Conferidos</th><th>Divergências</th><th>Avisos / erro</th></tr></thead>
+        <tbody>
+          {r.dados.map((x) => (
+            <tr key={x.id}>
+              <td>{dataHoraBR(x.em)}</td><td>{x.tipo}</td>
+              <td>{x.serie ? `${x.serie}${x.turma > 1 ? ' T' + x.turma : ''} – ${x.materia}` : ''}</td>
+              <td className="num">{x.avaliacoes ?? ''}</td><td className="num">{x.notas ?? ''}</td><td className="num">{x.conferidos ?? ''}</td>
+              <td className={`num ${x.divergencias?.length ? 'abaixo' : ''}`}>{x.divergencias?.length || ''}{x.divergencias?.length ? <small title={x.divergencias.join('\n')}> ver</small> : null}</td>
+              <td><small>{x.erro ? <b className="abaixo">ERRO: {x.erro}</b> : (x.avisos || []).slice(0, 3).join(' · ')}{(x.avisos || []).length > 3 ? ` (+${x.avisos.length - 3})` : ''}</small></td>
+            </tr>
+          ))}
+          {!r.dados.length && <tr><td colSpan={8} className="vazio">Nenhuma importação registrada ainda.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  )
 }

@@ -63,23 +63,26 @@ Secrets necessários no repositório (Settings → Secrets and variables → Act
 4. Cadastre `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` nos secrets do repositório.
 5. Na aba **Actions**, rode o workflow **Configurar login Google**. Ele ativa o Google no Supabase e libera a URL do site.
 
-## Apps Script (planilha de alunos)
+## Apps Script (alunos e importação de 2026)
 
-Abra a planilha de alunos e vá em Extensões → Apps Script. Copie para lá os arquivos da pasta `apps-script/`.
+Crie um projeto **separado** em script.google.com → Novo projeto. Ele não fica vinculado a nenhuma planilha.
 
-Em Configurações do projeto → Propriedades do script, cadastre:
+1. Copie os arquivos da pasta `apps-script/` para o projeto, incluindo o `appsscript.json`. Para editar o `appsscript.json`, ative em Configurações do projeto → "Mostrar arquivo de manifesto".
+2. Esse manifesto limita o script a **somente leitura** de planilhas. O Google não deixa o script alterar nenhuma planilha.
+3. Em Configurações do projeto → Propriedades do script, cadastre:
 
 | Propriedade | Valor |
 |---|---|
 | `SUPABASE_URL` | A Project URL |
 | `SUPABASE_SERVICE_KEY` | A chave `service_role`. Ela dá acesso total ao banco: nunca a compartilhe. |
-| `INDICE_ID` | Só se for importar 2026: o ID da planilha "Acesso às Planilhas de Notas" |
+| `ALUNOS_PLANILHA_ID` | O ID da planilha de alunos |
+| `INDICE_ID` | O ID da planilha "Acesso às Planilhas de Notas" (só para importar 2026) |
 
 Uso:
 
-- **Notas Palmares → Sincronizar alunos agora:** envia os alunos da planilha.
-- **Ativar sincronização diária:** sincroniza todo dia às 5h. Isso também mantém o banco gratuito ativo nas férias.
-- **`importarNotas2026`** (opcional): importa as planilhas de 2026 e confere se cada média bate com a da planilha. O relatório sai na aba "Importação".
+- **`sincronizarAlunos`:** copia os alunos para o sistema.
+- **`instalarRotinaDiaria`:** sincroniza todo dia às 5h. Isso também mantém o banco gratuito ativo.
+- **`importarNotas2026`:** copia as notas de 2026 e confere cada média com a planilha. O relatório aparece em Administração → Importação.
 
 ## Testes locais
 
