@@ -29,9 +29,9 @@ jobs:
         with:
           version: latest
       - name: Conectar ao projeto
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Aplicar migrations
-        run: supabase db push --remote --include-all --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --remote --include-all --yes
       - name: Garantir administrador inicial
         if: env.ADMIN_EMAIL != ''
         run: node scripts/supabase_api.mjs admin "$ADMIN_EMAIL"
