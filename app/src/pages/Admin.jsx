@@ -323,7 +323,13 @@ function Importacao() {
   const r = useDados(() => tabela('importacoes', (q) => q.order('em', { ascending: false }).limit(500)), [])
   if (r.carregando) return <Carregando />
   if (r.erro) return <Erro erro={r.erro} />
-  const notas = r.dados.filter((x) => x.tipo === 'notas')
+  // última importação de cada diário (reimportações substituem as anteriores)
+  const vistos = new Set()
+  const notas = r.dados.filter((x) => x.tipo === 'notas').filter((x) => {
+    const k = `${x.serie}|${x.turma}|${x.materia}`
+    if (vistos.has(k)) return false
+    vistos.add(k); return true
+  })
   const div = notas.reduce((s, x) => s + (x.divergencias?.length || 0), 0)
   const conf = notas.reduce((s, x) => s + (x.conferidos || 0), 0)
   return (
@@ -340,7 +346,7 @@ function Importacao() {
       <table className="tabela">
         <thead><tr><th>Quando</th><th>Tipo</th><th>Diário</th><th>Avaliações</th><th>Notas/alunos</th><th>Conferidos</th><th>Divergências</th><th>Avisos / erro</th></tr></thead>
         <tbody>
-          {r.dados.map((x) => (
+          {[...notas, ...r.dados.filter((x) => x.tipo !== 'notas')].sort((a, b) => (b.divergencias?.length || 0) - (a.divergencias?.length || 0) || (b.em > a.em ? 1 : -1)).map((x) => (
             <tr key={x.id}>
               <td>{dataHoraBR(x.em)}</td><td>{x.tipo}</td>
               <td>{x.serie ? `${x.serie}${x.turma > 1 ? ' T' + x.turma : ''} – ${x.materia}` : ''}</td>
