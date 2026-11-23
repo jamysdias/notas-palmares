@@ -1,0 +1,2 @@
+# Configuração mínima para o Supabase CLI (usada pelo GitHub Actions para aplicar as migrations)
+project_id = "notas-palmares"
